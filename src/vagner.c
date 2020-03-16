@@ -19,7 +19,8 @@
 
 //declare function stubs
 int * find_min_max_singleThread(int * array, int lowIndex, int highIndex);
-int find_min_multiThread(int lowIndex, int highIndex);
+int find_min_multiThread(int * array, int lowIndex, int highIndex);
+void printArray(int * array, int lowIndex, int highIndex, int mod);
 void runner (void * param);
 void splitter(void * param);
 
@@ -30,6 +31,7 @@ int * randomArray;
 
 int main()
 {
+	printf("\n*** Vagner Machado's Project #2 for CSC 340 ***");
 	topFive = malloc(sizeof(int) * FIVE);
 	topHundred = malloc(sizeof(int) * HUNDRED);
 	randomArray = malloc(sizeof(int) * INPUT);
@@ -41,14 +43,18 @@ int main()
 	so there would be negative integers in the array. Otherwise, 0 would
 	likely be the minimum all the time. It was the minimum in about 90% of cases
 	before the step above.
-	*/
+	 */
 
 	//generate 10000 random integers.
 	for(int i = 0; i < INPUT; i++)
 		randomArray[i] = rand() - (RAND_MAX / 2);
 
+	//uncomment two lines below to see all random numbers
+	/* printf("\n\n** All randomly generated numbers **\n");
+	   printArray(randomArray, 0, INPUT, 10); */
+
 	int * linearResult = find_min_max_singleThread(randomArray, 0, 10000);
-	printf("*** Values found using linear search ***\nThe minimum value is %d.\n"
+	printf("\n\n*** Values found using a single thread ***\nThe minimum value is %d.\n"
 			"The maximum value is %d.", linearResult[0], linearResult[1]);
 
 	pthread_t tid [FIVE]; // the thread identifiers
@@ -71,13 +77,22 @@ int main()
 	for(int i = 0; i < FIVE; i++)
 		pthread_join(tid[i],NULL);
 
-	printf("\nafter join main");
+	//prints the lowest hundred values, a parent at a time.
+	for(int index = 0; index < FIVE; index++)
+	{
+		printf("\n\n*** These are the twenty lowest values for parent %d ***", index + 1);
+		printArray(topHundred, index * TWENTY, index * TWENTY + TWENTY, FIVE);
+	}
 
+	printf("\n\n*** These are the five lowest values ***");
+	printArray(topFive, 0, FIVE, FIVE);
+
+	//find lowest of top five lowest results from created threads
+	int winner = find_min_multiThread(topFive, 0, FIVE);
+
+	//prints the lowest value using multithreading
+	printf("\n\n*** The lowest value using multithreading is %d ***", winner);
 }
-
-
-
-
 
 void splitter(void * upperParam)
 {
@@ -85,26 +100,18 @@ void splitter(void * upperParam)
 	int upper = atoi(paramCast);
 	int lower = upper - FIRST_LEVEL_DATA;
 	int writeTo = lower / FIRST_LEVEL_DATA;
-	printf("\nLEVEL 1: LOWER DELIM: %5d  -- UPPER DELIM: %5d", lower, upper);
+	//printf("\nLEVEL 1: LOWER DELIM: %5d  -- UPPER DELIM: %5d  --  WRITE_TO: %5d", lower, upper, writeTo);
 
-	////////////////
-
-	/* the thread identifier */
-	pthread_t tid [TWENTY];
-
-	pthread_attr_t attr [TWENTY]; /* set of thread attributes */
-
-
-	/* set the default attributes of the threads */
-	char ** buffer [TWENTY];
-	int upperBound = lower + SECOND_LEVEL_DATA;
+	pthread_t tid [TWENTY];		  				// the thread identifiers
+	pthread_attr_t attr [TWENTY]; 				// set of thread attributes
+	char ** buffer [TWENTY];					// buffer for the parameters
+	int upperBound = lower + SECOND_LEVEL_DATA; // used to manipulate the range passes for each thread
 
 	for(int i = 0; i < TWENTY; i++)
 	{
 		pthread_attr_init(&attr[i]);
 		buffer[i] = malloc(sizeof(char) * 6);
 		sprintf(buffer[i], "\n%d", upperBound);
-		//printf("\nLOWER DELIM: %5d  -- UPPER DELIM: %5d  -- UPPER2: %s", lower, upper, buffer[i]);
 		pthread_create(&tid[i], &attr[i], runner, buffer[i]);
 		upperBound += SECOND_LEVEL_DATA;
 	}
@@ -113,11 +120,8 @@ void splitter(void * upperParam)
 	for(int i = 0; i < TWENTY; i++)
 		pthread_join(tid[i],NULL);
 
-
-	printf("\nafter join in splitter parent %d", writeTo);
-
-
-
+	//finds the lowest out of 100 values
+	topFive[writeTo] = find_min_multiThread(topHundred, lower / SECOND_LEVEL_DATA, upper / SECOND_LEVEL_DATA);
 }
 void runner (void * upperParam)
 {
@@ -125,19 +129,19 @@ void runner (void * upperParam)
 	int upper = atoi(paramCast);
 	int lower = upper - SECOND_LEVEL_DATA;
 	int writeTo = lower / 100;
-	printf("\n   LEVEL 2: LOWER DELIM: %5d  -- UPPER DELIM: %5d  --  WRITE_TO %5d", lower, upper, writeTo);
-	topHundred[writeTo] = find_min_multiThread(lower, upper);
-
-
+	topHundred[writeTo] = find_min_multiThread(randomArray, lower, upper); //finds out of 100.
+	//printf("\n   LEVEL 2: LOWER DELIM: %5d  -- UPPER DELIM: %5d  --  WRITE_TO %5d", lower, upper, writeTo);
 }
 
-int find_min_multiThread(int lowIndex, int highIndex)
+/*
+ * Finds the minimum value in the range for the array passed as parameter
+ */
+int find_min_multiThread(int * array, int lowIndex, int highIndex)
 {
-	int min = randomArray[lowIndex];
+	int min = array[lowIndex];
 	for(int i = lowIndex; i < highIndex; i++)
-		if(randomArray[i] < min)
-			min = randomArray[i];
-	printf("\n      Min in low index %d: %d", lowIndex, min);
+		if(array[i] < min)
+			min = array[i];
 	return min;
 }
 
@@ -161,5 +165,16 @@ int * find_min_max_singleThread(int * array, int first, int last)
 	return minMax;
 }
 
-
-
+/**
+ * Prints the values from lowIndex to highIndex from array passed as parameter
+ */
+void printArray(int * array, int lowIndex, int highIndex, int mod)
+{
+	for(int i = lowIndex; i < highIndex; i++)
+	{
+		if(i % mod != 0 && i != 0)
+			printf("%11d ", array[i]);
+		else
+			printf("\n%11d ", array[i]);
+	}
+}
