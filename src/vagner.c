@@ -91,7 +91,7 @@ int main()
 	int winner = find_min_multiThread(topFive, 0, FIVE);
 
 	//prints the lowest value using multithreading
-	printf("\n\n*** The lowest value using multithreading is %d ***", winner);
+	printf("\n\n*** The lowest value using multithreading is %d ***\n\n", winner);
 }
 
 void splitter(void * upperParam)
