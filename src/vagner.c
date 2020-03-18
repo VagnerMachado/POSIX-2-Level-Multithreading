@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <time.h>
+#include <string.h>
 
 //DEFINE SOME CONSTANTS
 #define INPUT 10000
@@ -20,7 +21,8 @@
 //declare function stubs
 int * find_min_max_singleThread(int * array, int lowIndex, int highIndex);
 int find_min_multiThread(int * array, int lowIndex, int highIndex);
-void printArray(int * array, int lowIndex, int highIndex, int mod);
+void printArrayToFile(int * array, int lowIndex, int highIndex, int mod, FILE * output);
+void helpNeeded(FILE * output);
 void runner (void * param);
 void splitter(void * param);
 
@@ -29,9 +31,13 @@ int * topFive;
 int * topHundred;
 int * randomArray;
 
-int main()
+//declare output file
+FILE * output;
+
+int main(int argc, char ** argv)
 {
-	printf("\n*** Vagner Machado's Project #2 for CSC 340 ***");
+	output = fopen("vagner-output.txt", "w");
+	fprintf(output, "\n*** Vagner Machado's Project #2 for CSC 340 ***");
 	topFive = malloc(sizeof(int) * FIVE);
 	topHundred = malloc(sizeof(int) * HUNDRED);
 	randomArray = malloc(sizeof(int) * INPUT);
@@ -49,12 +55,35 @@ int main()
 	for(int i = 0; i < INPUT; i++)
 		randomArray[i] = rand() - (RAND_MAX / 2);
 
-	//uncomment two lines below to see all random numbers
-	/* printf("\n\n** All randomly generated numbers **\n");
-	   printArray(randomArray, 0, INPUT, 10); */
+	//option to print all 10000  random numbers or require help
+	if(argc > 1)
+	{
+		if(strcmp(argv[1],"-printInput") == 0)
+		{
+			fprintf(output, "\n\n** All randomly generated numbers **\n");
+			printArrayToFile(randomArray, 0, INPUT, 10, output);
+		}
+		else if(strcmp(argv[1],"-help") == 0)
+		{
+			fprintf(output, "\t\n\n***  Here is some helpful information ***");
+			printf("\t\n*** Here is some helpful information ***");
+			helpNeeded(output);
+			fclose(output);
+			return -1;
+		}
+		else
+		{
+			fprintf(output, "\n\n***  ERROR: %s is an invalid parameter ***", argv[1]);
+			printf("\n***  ERROR: %s is an invalid parameter ***", argv[1]);
+			helpNeeded(output);
+			fclose(output);
+			return -1;
+		}
+	}
 
 	int * linearResult = find_min_max_singleThread(randomArray, 0, 10000);
-	printf("\n\n*** Values found using a single thread ***\nThe minimum value is %d.\n"
+
+	fprintf(output, "\n\n*** Values found using a single thread ***\nThe minimum value is %d.\n"
 			"The maximum value is %d.", linearResult[0], linearResult[1]);
 
 	pthread_t tid [FIVE]; // the thread identifiers
@@ -80,20 +109,34 @@ int main()
 	//prints the lowest hundred values, a parent at a time.
 	for(int index = 0; index < FIVE; index++)
 	{
-		printf("\n\n*** These are the twenty lowest values for parent %d ***", index + 1);
-		printArray(topHundred, index * TWENTY, index * TWENTY + TWENTY, FIVE);
+		fprintf(output, "\n\n*** These are the twenty lowest values for parent %d ***", index + 1);
+		printArrayToFile(topHundred, index * TWENTY, index * TWENTY + TWENTY, FIVE, output);
 	}
 
-	printf("\n\n*** These are the five lowest values ***");
-	printArray(topFive, 0, FIVE, FIVE);
+	fprintf(output, "\n\n*** These are the five lowest values ***");
+	printArrayToFile(topFive, 0, FIVE, FIVE, output);
 
 	//find lowest of top five lowest results from created threads
 	int winner = find_min_multiThread(topFive, 0, FIVE);
 
 	//prints the lowest value using multithreading
-	printf("\n\n*** The lowest value using multithreading is %d ***\n\n", winner);
+	fprintf(output, "\n\n*** The lowest value using multithreading is %d ***\n\n", winner);
+	int res = fclose(output);
+	if(res < 0)
+	{
+		printf("\n*** Error closing file *** \n");
+		return -1;
+	}
+
+	printf("\n\n*** Program terminated successfully: See file output-vagner.txt for generated output *** \n");
+	return 0;
 }
 
+/**
+ * creates twenty threads. Each of this threads calls runner with parameter calculated  according to parameter passed into splitter function.
+ * The minimum value is written to global array topFive at position also calculated according to the parameter passed into function.
+ * The parameter passed into this function indicates the upper index of random integers this function should operate upon.
+ */
 void splitter(void * upperParam)
 {
 	char * paramCast = upperParam;
@@ -116,13 +159,19 @@ void splitter(void * upperParam)
 		upperBound += SECOND_LEVEL_DATA;
 	}
 
-	//wait for the threadS to exit
+	//wait for the threads to exit
 	for(int i = 0; i < TWENTY; i++)
 		pthread_join(tid[i],NULL);
 
 	//finds the lowest out of 100 values
 	topFive[writeTo] = find_min_multiThread(topHundred, lower / SECOND_LEVEL_DATA, upper / SECOND_LEVEL_DATA);
 }
+
+/**
+ * finds the minimum value in the range calculated based on parameter passed into function.
+ * The minimum value is written to global array topHundred at position also calculated according to the parameter passed into function.
+ * The parameter passed into this function indicates the upper index of random integers this function should operate upon.
+ */
 void runner (void * upperParam)
 {
 	char * paramCast = upperParam;
@@ -135,6 +184,7 @@ void runner (void * upperParam)
 
 /*
  * Finds the minimum value in the range for the array passed as parameter
+ * @return - the minimum value in the array
  */
 int find_min_multiThread(int * array, int lowIndex, int highIndex)
 {
@@ -146,8 +196,8 @@ int find_min_multiThread(int * array, int lowIndex, int highIndex)
 }
 
 /**
- * Finds minimum and maximum values in array of random
- * numbers using the parameter range provided
+ * Finds minimum and maximum values in array of random numbers using the parameter array and range provided
+ * @return an integer array pointer to two values: min at position 0 and max at position 1.
  */
 int * find_min_max_singleThread(int * array, int first, int last)
 {
@@ -166,15 +216,47 @@ int * find_min_max_singleThread(int * array, int first, int last)
 }
 
 /**
- * Prints the values from lowIndex to highIndex from array passed as parameter
+ * Prints to file output the values from lowIndex to less than highIndex from array passed as parameter
  */
-void printArray(int * array, int lowIndex, int highIndex, int mod)
+void printArrayToFile(int * array, int lowIndex, int highIndex, int mod, FILE * output)
 {
 	for(int i = lowIndex; i < highIndex; i++)
 	{
 		if(i % mod != 0 && i != 0)
-			printf("%11d ", array[i]);
+			fprintf(output, "%12d ", array[i]);
 		else
-			printf("\n%11d ", array[i]);
+			fprintf(output, "\n%12d ", array[i]);
 	}
+}
+
+/**
+ * prints information about what the program accomplishes, compilation and execution instructions.
+ * This function is called if user passes -help as argument to program of if argument passed to program is invalid.
+ */
+void helpNeeded(FILE * output)
+{
+	const char message [] = "\n\n***  This program accomplishes ***\n\n"
+			"0. The program generates 10,000 random integers.\n"
+			"1. The program finds the lowest and maximum values using a single thread and prints the values.\n"
+			"2. Given the parameter -printInput as parameter, the program prints the 10,000 random integers to file.\n"
+			"3. The main process creates 5 threads and each is responsible for 2,000 of those random integers.\n"
+			"4. Each of the 5 threads, creates 20 threads to find the lowest value in 100 of those random integers.\n"
+			"5. This will find the 100 lowest values, 20 in each parent thread.\n"
+			"6. Each parent thread finds the lowest of its 20 integers, so there are 5 lowest values left.\n"
+			"7. The lowest 20 values for each child thread are printed.\n"
+			"8. The lowest 5 values for the parent threads are printed.\n"
+			"9. The lowest value out of lowest 5 is printed.\n"
+			"10. Main thread scans the 5 values left to find the lowest value.\n"
+			"11. All output is printed to file vagner-output.txt.\n\n"
+			"NOTE: User can pass parameter -printInput to see all generated integers printed to file.\n\n"
+			"***   COMPILATION INSTRUCTIONS   ***\n\n"
+			"\tgcc -c vagner.c                  // compiles the file to object file.\n"
+			"\tgcc -o app.exe vagner.o          // links object file to executable.\n"
+			"\tOPTION 1: ./app.exe              // runs the program without printing the random integers.\n"
+			"\tOPTION 2: ./app.exe -printInput  // runs the program printing the random input integers.\n"
+			"\tOPTION 3: ./app.exe -help        // runs the program and prints this message to console and vagner-output.txt file.\n\n";
+
+	printf("%s", message);
+	fprintf(output, message);
+
 }
