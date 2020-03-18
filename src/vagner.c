@@ -1,6 +1,5 @@
 /*
  * 		vagner.c
- *
  *  	Created on: Mar 13, 2020
  *
  *      Author: Vagner Machado
@@ -10,18 +9,19 @@
  *
  	 	 	 	 *** This program accomplishes ***
 
-			0. The program generates 10,000 random integers.
-			1. The program finds the lowest and maximum values using a single thread and prints the values.
-			2. Given the parameter -printInput as parameter, the program prints the 10,000 random integers to file.
-			3. The main process creates 5 threads and each is responsible for 2,000 of those random integers.
-			4. Each of the 5 threads, creates 20 threads to find the lowest value in 100 of those random integers.
-			5. This will find the 100 lowest values, 20 in each parent thread.
-			6. Each parent thread finds the lowest of its 20 integers, so there are 5 lowest values left.
-			7. The lowest 20 values for each child thread are printed.
-			8. The lowest 5 values for the parent threads are printed.
-			9. The lowest value out of lowest 5 is printed.
-			10. Main thread scans the 5 values left to find the lowest value.
+			0.  The program generates 10,000 random integers.
+			1.  The program finds the lowest and maximum values using a single thread and prints the values.
+			2.  Given the parameter -printInput, the program prints the 10,000 random integers to file.
+			3.  The main process creates 5 threads and each is responsible for processing 2,000 of those random integers.
+			4.  Each of the 5 threads creates 20 child threads. Each of 20 child threads finds the lowest value in 100 random integers.
+			5.  This will find the 100 lowest values, 20 in each parent thread.
+			6.  Each parent thread finds the lowest of its 20 integers, so there are 5 lowest values left.
+			7.  The lowest 20 values for each child thread are printed.
+			8.  The lowest 5 values for the parent threads are printed.
+			9.  The lowest value out of lowest 5 is printed.
+			10. The main thread scans the 5 lowest values to find the lowest value.
 			11. All output is printed to file vagner-output.txt.
+
 			NOTE: User can pass parameter -printInput to see all generated integers printed to file.
 
 				***   COMPILATION INSTRUCTIONS   ***
@@ -145,16 +145,16 @@ int main(int argc, char ** argv)
 	{
 		pthread_attr_init(&attr[i]);							// set the thread attribute
 		buffer[i] = malloc(sizeof(char) * 6);					// allocate memory for the argument
-		sprintf(buffer[i], "%d", upperBound);					// add argument to buffer
-		pthread_create(&tid[i], &attr[i], splitter, buffer[i]); // create thread
-		upperBound += FIRST_LEVEL_DATA;							// increment argument
+		sprintf(buffer[i], "%d", upperBound);					// print thread argument to buffer
+		pthread_create(&tid[i], &attr[i], splitter, buffer[i]); // create thread with values set above
+		upperBound += FIRST_LEVEL_DATA;							// increment argument for next thread
 	}
 
 	//wait for the five threads to join
 	for(int i = 0; i < FIVE; i++)
 		pthread_join(tid[i],NULL);
 
-	//prints to file the lowest hundred values. A parent at a time prints twenty values each.
+	//after all join, prints to file the lowest hundred values. A parent at a time prints twenty values each.
 	for(int index = 0; index < FIVE; index++)
 	{
 		fprintf(output, "\n\n*** These are the twenty lowest values for parent %d ***", index + 1);
@@ -185,16 +185,22 @@ int main(int argc, char ** argv)
 }
 
 /**
- * creates twenty threads. Each of this threads calls runner with parameter calculated  according to parameter passed into splitter function.
- * The minimum value is written to global array topFive at position also calculated according to the parameter passed into function.
+ * Creates twenty threads. Each of this threads calls runner with parameter calculated according to parameter passed into splitter function.
+ * The minimum value in lower to upper range is written to global array topFive at position also calculated according to the parameter passed into function.
  * The parameter passed into this function indicates the upper index of random integers this function should operate upon.
  */
 void splitter(void * upperParam)
 {
+	//cast the parameter
 	char * paramCast = upperParam;
+
+	//calculate the lower and upper indexes to operate upon
 	int upper = atoi(paramCast);
 	int lower = upper - FIRST_LEVEL_DATA;
+
+	//calculate the index to write the result into
 	int writeTo = lower / FIRST_LEVEL_DATA;
+
 	//printf("\nLEVEL 1: LOWER DELIM: %5d  -- UPPER DELIM: %5d  --  WRITE_TO: %5d", lower, upper, writeTo);
 
 	pthread_t tid [TWENTY];		  				// the thread identifiers
@@ -202,20 +208,21 @@ void splitter(void * upperParam)
 	char ** buffer [TWENTY];					// buffer for the parameters
 	int upperBound = lower + SECOND_LEVEL_DATA; // used to manipulate the range passes for each thread
 
+	//initialize attributes, allocate memory for argument, create thread
 	for(int i = 0; i < TWENTY; i++)
 	{
-		pthread_attr_init(&attr[i]);
-		buffer[i] = malloc(sizeof(char) * 6);
-		sprintf(buffer[i], "\n%d", upperBound);
-		pthread_create(&tid[i], &attr[i], runner, buffer[i]);
-		upperBound += SECOND_LEVEL_DATA;
+		pthread_attr_init(&attr[i]);                         // set the attributes
+		buffer[i] = malloc(sizeof(char) * 6);                // allocate memory for string parameter to thread created  below
+		sprintf(buffer[i], "\n%d", upperBound);              // print the parameter to string
+		pthread_create(&tid[i], &attr[i], runner, buffer[i]);// create a thread with values set above
+		upperBound += SECOND_LEVEL_DATA;                     // calculate the parameter for next thread
 	}
 
-	//wait for the threads to exit
+	//wait for the threads to join
 	for(int i = 0; i < TWENTY; i++)
 		pthread_join(tid[i],NULL);
 
-	//finds the lowest out of 100 values
+	//finds the lowest out of 20 lowest values for this thread and writes to topFive array
 	topFive[writeTo] = find_min_multiThread(topHundred, lower / SECOND_LEVEL_DATA, upper / SECOND_LEVEL_DATA);
 }
 
@@ -226,16 +233,24 @@ void splitter(void * upperParam)
  */
 void runner (void * upperParam)
 {
+	//cast the parameter
 	char * paramCast = upperParam;
+
+	//calculate the lower and upper indexes to operate upon
 	int upper = atoi(paramCast);
 	int lower = upper - SECOND_LEVEL_DATA;
+
+	//calculate the index to write the lowest value to
 	int writeTo = lower / 100;
+	//finds the lowest value in the the array and within range passes as paramenter
 	topHundred[writeTo] = find_min_multiThread(randomArray, lower, upper); //finds out of 100.
+
 	//printf("\n   LEVEL 2: LOWER DELIM: %5d  -- UPPER DELIM: %5d  --  WRITE_TO %5d", lower, upper, writeTo);
 }
 
 /*
- * Finds the minimum value in the range for the array passed as parameter
+ * Finds the minimum value within the range for the array passed as parameter.
+ * Linear search is more efficient than sort to find lowest.
  * @return - the minimum value in the array
  */
 int find_min_multiThread(int * array, int lowIndex, int highIndex)
@@ -249,13 +264,14 @@ int find_min_multiThread(int * array, int lowIndex, int highIndex)
 
 /**
  * Finds minimum and maximum values in array of random numbers using the parameter array and range provided
+ * Linear search is more efficient than sort to find lowest and largest.
  * @return an integer array pointer to two values: min at position 0 and max at position 1.
  */
 int * find_min_max_singleThread(int * array, int first, int last)
 {
 	int * minMax = malloc(sizeof(int) * 2); //allocate memory for the result
 	int min, max = randomArray[0];			//default values to be compared against
-	for(int i = first + 1; i < last; i++)
+	for(int i = first + 1; i < last; i++)   //basic linear sort
 	{
 		if(array[i] < min)
 			min = array[i];
@@ -268,15 +284,16 @@ int * find_min_max_singleThread(int * array, int first, int last)
 }
 
 /**
- * Prints to file output the values from lowIndex to less than highIndex from array passed as parameter
+ * Prints to file output the values from lowIndex up to less than highIndex in array passed as parameter.
+ * Mod parameter determined how many values per line.
  */
 void printArrayToFile(int * array, int lowIndex, int highIndex, int mod, FILE * output)
 {
 	for(int i = lowIndex; i < highIndex; i++)
 	{
-		if(i % mod != 0 && i != 0)
+		if(i % mod != 0 && i != 0) 	              //if new line is not needed print next value
 			fprintf(output, "%12d ", array[i]);
-		else
+		else                                      //goes to new line before printing next value
 			fprintf(output, "\n%12d ", array[i]);
 	}
 }
@@ -288,17 +305,17 @@ void printArrayToFile(int * array, int lowIndex, int highIndex, int mod, FILE * 
 void helpNeeded(FILE * output)
 {
 	const char message [] = "\n\n***  This program accomplishes ***\n\n"
-			"0. The program generates 10,000 random integers.\n"
-			"1. The program finds the lowest and maximum values using a single thread and prints the values.\n"
-			"2. Given the parameter -printInput as parameter, the program prints the 10,000 random integers to file.\n"
-			"3. The main process creates 5 threads and each is responsible for 2,000 of those random integers.\n"
-			"4. Each of the 5 threads, creates 20 threads to find the lowest value in 100 of those random integers.\n"
-			"5. This will find the 100 lowest values, 20 in each parent thread.\n"
-			"6. Each parent thread finds the lowest of its 20 integers, so there are 5 lowest values left.\n"
-			"7. The lowest 20 values for each child thread are printed.\n"
-			"8. The lowest 5 values for the parent threads are printed.\n"
-			"9. The lowest value out of lowest 5 is printed.\n"
-			"10. Main thread scans the 5 values left to find the lowest value.\n"
+			"0.  The program generates 10,000 random integers.\n"
+			"1.  The program finds the lowest and maximum values using a single thread and prints the values.\n"
+			"2.  Given the parameter -printInput as parameter, the program prints the 10,000 random integers to file.\n"
+			"3.  The main process creates 5 threads and each is responsible for processing 2,000 of those random integers.\n"
+			"4.  Each of the 5 threads creates 20 child threads. Each of 20 child threads finds the lowest value in 100 random integers.\n"
+			"5.  This will find the 100 lowest values, 20 in each parent thread.\n"
+			"6.  Each parent thread finds the lowest of its 20 integers, so there are 5 lowest values left.\n"
+			"7.  The lowest 20 values for each child thread are printed.\n"
+			"8.  The lowest 5 values for the parent threads are printed.\n"
+			"9.  The lowest value out of lowest 5 is printed.\n"
+			"10. The main thread scans the 5 lowest values to find the lowest value.\n"
 			"11. All output is printed to file vagner-output.txt.\n\n"
 			"NOTE: User can pass parameter -printInput to see all generated integers printed to file.\n\n"
 			"***   COMPILATION INSTRUCTIONS   ***\n\n"
