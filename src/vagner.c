@@ -64,35 +64,50 @@ int * randomArray;
 //declare output file
 FILE * output;
 
+/**
+ * The main function sets up all variables declared above and allocates necessary memory.
+ * Generates array of 10000 random integers and checks for any arguments passed in.
+ * Finds the minimum and maximum values in random array and prints the values to file.
+ * Creates five threads, each to be responsible to find the minimum in 2000 value sections of random array
+ * When all threads join, the lowest 100 values and lowest 5 values are printed to file.
+ * The main function running on the main thread finds the lowest of 5 values and prints it to file.
+ */
 int main(int argc, char ** argv)
 {
+	//open a file for writing the output
 	output = fopen("vagner-output.txt", "w");
 	fprintf(output, "\n*** Vagner Machado's Project #2 for CSC 340 ***");
+
+	//allocate memory for the global arrays
 	topFive = malloc(sizeof(int) * FIVE);
 	topHundred = malloc(sizeof(int) * HUNDRED);
 	randomArray = malloc(sizeof(int) * INPUT);
+
 	time_t t;					// declare a time variable to use as seed for random
 	srand((unsigned)time(&t));  // seed a randomizer
 
 	/*
 	Note: (RAND_MAX / 2) is subtracted from the randomly generated integers
 	so there would be negative integers in the array. Otherwise, 0 would
-	likely be the minimum all the time. It was the minimum in about 90% of cases
-	before the step above.
+	likely be the minimum all the time. It was the minimum in over 90% of cases
+	before the division and subtraction mentioned above.
 	 */
 
 	//generate 10000 random integers.
 	for(int i = 0; i < INPUT; i++)
 		randomArray[i] = rand() - (RAND_MAX / 2);
 
-	//option to print all 10000  random numbers or require help
+	//option to print all 10000  random numbers, require help and check for invalid parameter
 	if(argc > 1)
 	{
+		//prints random array to file
 		if(strcmp(argv[1],"-printInput") == 0)
 		{
 			fprintf(output, "\n\n** All randomly generated numbers **\n");
 			printArrayToFile(randomArray, 0, INPUT, 10, output);
 		}
+
+		//prints program information, compilation and execution to file
 		else if(strcmp(argv[1],"-help") == 0)
 		{
 			fprintf(output, "\t\n\n***  Here is some helpful information ***");
@@ -103,6 +118,7 @@ int main(int argc, char ** argv)
 		}
 		else
 		{
+			//invalid parameter passed, I decided to stop execution
 			fprintf(output, "\n\n***  ERROR: %s is an invalid parameter ***", argv[1]);
 			printf("\n***  ERROR: %s is an invalid parameter ***", argv[1]);
 			helpNeeded(output);
@@ -111,15 +127,17 @@ int main(int argc, char ** argv)
 		}
 	}
 
+	//array that points to minimum and maximum values found using single a thread
 	int * linearResult = find_min_max_singleThread(randomArray, 0, 10000);
 
+	//prints the minimumand maximum values to file
 	fprintf(output, "\n\n*** Values found using a single thread ***\nThe minimum value is %d.\n"
 			"The maximum value is %d.", linearResult[0], linearResult[1]);
 
-	pthread_t tid [FIVE]; // the thread identifiers
+	pthread_t tid [FIVE]; 		// the thread identifiers
 	pthread_attr_t attr [FIVE]; // the thread attributes */
 
-	char ** buffer [FIVE]; // buffer for the parameters in create thread
+	char ** buffer [FIVE];             // buffer for the parameters in create thread
 	int upperBound = FIRST_LEVEL_DATA; // used to manipulate parameter to each of five threads
 
 	//initialize attributes, allocate memory for argument, create thread
@@ -132,17 +150,18 @@ int main(int argc, char ** argv)
 		upperBound += FIRST_LEVEL_DATA;							// increment argument
 	}
 
-	//wait for the five threads to exit
+	//wait for the five threads to join
 	for(int i = 0; i < FIVE; i++)
 		pthread_join(tid[i],NULL);
 
-	//prints the lowest hundred values, a parent at a time.
+	//prints to file the lowest hundred values. A parent at a time prints twenty values each.
 	for(int index = 0; index < FIVE; index++)
 	{
 		fprintf(output, "\n\n*** These are the twenty lowest values for parent %d ***", index + 1);
 		printArrayToFile(topHundred, index * TWENTY, index * TWENTY + TWENTY, FIVE, output);
 	}
 
+	//prints to file to lowest five values
 	fprintf(output, "\n\n*** These are the five lowest values ***");
 	printArrayToFile(topFive, 0, FIVE, FIVE, output);
 
@@ -152,12 +171,15 @@ int main(int argc, char ** argv)
 	//prints the lowest value using multithreading
 	fprintf(output, "\n\n*** The lowest value using multithreading is %d ***\n\n", winner);
 	int res = fclose(output);
+
+	//checks for error closing the file and provides output case true
 	if(res < 0)
 	{
 		printf("\n*** Error closing file *** \n");
 		return -1;
 	}
 
+	//successful run.
 	printf("\n\n*** Program terminated successfully: See file output-vagner.txt for generated output *** \n");
 	return 0;
 }
