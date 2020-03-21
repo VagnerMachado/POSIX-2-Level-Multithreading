@@ -7,7 +7,7 @@
  *      		CSC 340 - Queens College
  *      		Professor John Svadlenka
  *
- 	 	 	 	 *** This program accomplishes ***
+ 	 	 	 	 *** STEPS IN THE PROGRAM ***
 
 			0.  The program generates 10,000 random integers.
 			1.  The program finds the lowest and maximum values using a single thread and prints the values.
@@ -19,7 +19,7 @@
 			7.  The lowest 20 values for each child thread are printed.
 			8.  The lowest 5 values for the parent threads are printed.
 			9.  The lowest value out of lowest 5 is printed.
-			10. The main thread scans the 5 lowest values to find the lowest value.
+			10. The main process scans the 5 lowest values to find the lowest value.
 			11. All output is printed to file vagner-output.txt.
 
 			NOTE: User can pass parameter -printInput to see all generated integers printed to file.
@@ -49,12 +49,12 @@
 #define TWENTY 20
 
 //declare function stubs
-int * find_min_max_singleThread(int * array, int lowIndex, int highIndex);
-int find_min_multiThread(int * array, int lowIndex, int highIndex);
-void printArrayToFile(int * array, int lowIndex, int highIndex, int mod, FILE * output);
-void helpNeeded(FILE * output);
-void runner (void * param);
-void splitter(void * param);
+int * find_min_max_singleThread(int * array, int lowIndex, int highIndex); // uses linear search for range
+int find_min_multiThread(int * array, int lowIndex, int highIndex);        // finds lowest within range in array
+void printArrayToFile(int * array, int lowIndex, int highIndex, int mod, FILE * output); // prints range in array to file
+void helpNeeded(FILE * output);		// called when -help is passed to program
+void runner (void * param);         // function that finds lowest value in a set of 100 integers
+void splitter(void * param);        // function that creates 20 threads per call.
 
 //declare global data buffers
 int * topFive;
@@ -89,7 +89,7 @@ int main(int argc, char ** argv)
 	/*
 	Note: (RAND_MAX / 2) is subtracted from the randomly generated integers
 	so there would be negative integers in the array. Otherwise, 0 would
-	likely be the minimum all the time. It was the minimum in over 90% of cases
+	likely be the minimum all the time. It was the minimum in most of cases
 	before the division and subtraction mentioned above.
 	 */
 
@@ -180,7 +180,7 @@ int main(int argc, char ** argv)
 	}
 
 	//successful run.
-	printf("\n\n*** Program terminated successfully: See file output-vagner.txt for generated output *** \n");
+	printf("\n\n*** Program terminated successfully: See file vagner-output.txt for generated output *** \n");
 	return 0;
 }
 
@@ -241,7 +241,7 @@ void runner (void * upperParam)
 	int lower = upper - SECOND_LEVEL_DATA;
 
 	//calculate the index to write the lowest value to
-	int writeTo = lower / 100;
+	int writeTo = lower / SECOND_LEVEL_DATA;
 	//finds the lowest value in the the array and within range passes as paramenter
 	topHundred[writeTo] = find_min_multiThread(randomArray, lower, upper); //finds out of 100.
 
@@ -304,7 +304,7 @@ void printArrayToFile(int * array, int lowIndex, int highIndex, int mod, FILE * 
  */
 void helpNeeded(FILE * output)
 {
-	const char message [] = "\n\n***  This program accomplishes ***\n\n"
+	const char message [] = "\n\n***  STEPS IN THE PROGRAM ***\n\n"
 			"0.  The program generates 10,000 random integers.\n"
 			"1.  The program finds the lowest and maximum values using a single thread and prints the values.\n"
 			"2.  Given the parameter -printInput as parameter, the program prints the 10,000 random integers to file.\n"
@@ -315,7 +315,7 @@ void helpNeeded(FILE * output)
 			"7.  The lowest 20 values for each child thread are printed.\n"
 			"8.  The lowest 5 values for the parent threads are printed.\n"
 			"9.  The lowest value out of lowest 5 is printed.\n"
-			"10. The main thread scans the 5 lowest values to find the lowest value.\n"
+			"10. The main process scans the 5 lowest values to find the lowest value.\n"
 			"11. All output is printed to file vagner-output.txt.\n\n"
 			"NOTE: User can pass parameter -printInput to see all generated integers printed to file.\n\n"
 			"***   COMPILATION INSTRUCTIONS   ***\n\n"

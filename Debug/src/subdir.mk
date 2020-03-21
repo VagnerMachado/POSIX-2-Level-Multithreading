@@ -6,6 +6,9 @@
 C_SRCS += \
 ../src/vagner.c 
 
+O_SRCS += \
+../src/vagner.o 
+
 OBJS += \
 ./src/vagner.o 
 
